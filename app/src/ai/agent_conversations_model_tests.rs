@@ -962,9 +962,10 @@ fn test_get_entries_includes_task_only_entry() {
             assert_eq!(entry.identity.local_conversation_id, None);
             assert_eq!(entry.provenance, AgentConversationProvenance::AmbientRun);
             assert_eq!(entry.display.run_time.as_deref(), Some("2.00 min"));
-            assert_eq!(entry.display.execution_location, None);
+            assert_eq!(entry.execution_location, None);
             assert!(entry.backing.has_ambient_run);
             assert!(!entry.backing.has_loaded_conversation);
+            assert!(entry.is_cloud_agent_run());
         });
     });
 }
@@ -986,11 +987,11 @@ fn test_task_entry_preserves_execution_location_independently_of_task_backing() 
             let entries = model.get_entries(&all_owner_filters(), ctx);
             let local_entry = entries
                 .iter()
-                .find(|entry| entry.display.execution_location == Some(ExecutionLocation::Local))
+                .find(|entry| entry.execution_location == Some(ExecutionLocation::Local))
                 .expect("local task entry");
             let remote_entry = entries
                 .iter()
-                .find(|entry| entry.display.execution_location == Some(ExecutionLocation::Remote))
+                .find(|entry| entry.execution_location == Some(ExecutionLocation::Remote))
                 .expect("remote task entry");
 
             assert!(local_entry.backing.has_ambient_run);
@@ -999,6 +1000,44 @@ fn test_task_entry_preserves_execution_location_independently_of_task_backing() 
             assert!(remote_entry.backing.has_ambient_run);
             assert!(remote_entry.identity.ambient_agent_task_id.is_some());
             assert!(remote_entry.is_cloud_agent_run());
+        });
+    });
+}
+
+#[test]
+fn test_ambient_conversation_without_task_preserves_cloud_classification() {
+    App::test((), |mut app| async move {
+        let ambient_task_id = make_uuid(8103).parse().unwrap();
+        let server_token = "ambient-conversation-token";
+        add_entry_projection_test_models(&mut app);
+        let mut conversation = AIConversation::new(false, false);
+        let conversation_id = conversation.id();
+        conversation.set_server_conversation_token(server_token.to_string());
+        let server_metadata = create_server_conversation_metadata(
+            "Ambient conversation",
+            server_token,
+            Some(ambient_task_id),
+        );
+        BlocklistAIHistoryModel::handle(&app).update(&mut app, |model, ctx| {
+            model.restore_conversations(EntityId::new(), vec![conversation], ctx);
+            model.merge_cloud_conversation_metadata(vec![server_metadata]);
+        });
+
+        let mut model = create_test_model();
+        model.conversations.insert(
+            conversation_id,
+            create_test_conversation_metadata(conversation_id, "Ambient conversation"),
+        );
+
+        app.update(|ctx| {
+            let entries = model.get_entries(&all_owner_filters(), ctx);
+
+            assert_eq!(entries.len(), 1);
+            let entry = &entries[0];
+            assert_eq!(entry.identity.ambient_agent_task_id, Some(ambient_task_id));
+            assert_eq!(entry.execution_location, None);
+            assert!(entry.backing.has_ambient_run);
+            assert!(entry.is_cloud_agent_run());
         });
     });
 }

@@ -73,6 +73,7 @@ pub struct AgentConversationEntry {
     pub id: AgentConversationEntryId,
     pub identity: AgentConversationIdentity,
     pub provenance: AgentConversationProvenance,
+    pub execution_location: Option<ExecutionLocation>,
     pub display: AgentConversationDisplayData,
     pub backing: AgentConversationBackingData,
     pub capabilities: AgentConversationCapabilities,
@@ -101,7 +102,6 @@ pub struct AgentConversationDisplayData {
     pub run_time: Option<String>,
     pub session_status: Option<SessionStatus>,
     pub source: Option<AgentSource>,
-    pub execution_location: Option<ExecutionLocation>,
     pub working_directory: Option<String>,
     pub environment_id: Option<String>,
     pub harness: Option<Harness>,
@@ -171,7 +171,15 @@ pub struct AgentConversationCapabilities {
 impl AgentConversationEntry {
     /// Returns whether this entry represents a cloud agent run.
     pub fn is_cloud_agent_run(&self) -> bool {
-        self.display.execution_location == Some(ExecutionLocation::Remote)
+        match self.execution_location {
+            Some(ExecutionLocation::Local) => false,
+            Some(ExecutionLocation::Remote) => true,
+            None => {
+                matches!(self.provenance, AgentConversationProvenance::AmbientRun)
+                    || self.backing.has_ambient_run
+                    || self.identity.ambient_agent_task_id.is_some()
+            }
+        }
     }
 
     pub(super) fn matches_filters(
@@ -495,6 +503,7 @@ pub(super) fn entry_for_task(
             session_id: task_session_id(task),
         },
         provenance: AgentConversationProvenance::AmbientRun,
+        execution_location: task.execution_location,
         display: AgentConversationDisplayData {
             title: task.title.clone(),
             initial_query: Some(task.prompt.clone()),
@@ -521,7 +530,6 @@ pub(super) fn entry_for_task(
             run_time: task_run_time(task),
             session_status: Some(task_session_status(task)),
             source: task.source.clone(),
-            execution_location: task.execution_location,
             working_directory: conversation_metadata
                 .and_then(|metadata| metadata.initial_working_directory.clone()),
             environment_id: task
@@ -617,6 +625,7 @@ fn entry_for_conversation_parts(
             session_id: None,
         },
         provenance,
+        execution_location: None,
         display: AgentConversationDisplayData {
             title: conversation_title(&metadata, history_model),
             initial_query: metadata.nav_data.initial_query.clone(),
@@ -629,7 +638,6 @@ fn entry_for_conversation_parts(
             run_time: None,
             session_status: None,
             source: Some(AgentSource::Interactive),
-            execution_location: None,
             working_directory: metadata
                 .nav_data
                 .latest_working_directory

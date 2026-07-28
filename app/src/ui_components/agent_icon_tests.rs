@@ -385,7 +385,7 @@ fn local_claude_vs_cloud_claude_differ_only_by_is_ambient() {
 }
 
 #[test]
-fn entry_icon_uses_display_harness_and_execution_location() {
+fn entry_icon_uses_harness_and_execution_location() {
     let conversation_id = AIConversationId::new();
     let entry = AgentConversationEntry {
         id: AgentConversationEntryId::Conversation(conversation_id),
@@ -396,6 +396,7 @@ fn entry_icon_uses_display_harness_and_execution_location() {
             session_id: None,
         },
         provenance: AgentConversationProvenance::CloudSyncedConversation,
+        execution_location: None,
         display: AgentConversationDisplayData {
             title: "Codex conversation".to_string(),
             initial_query: None,
@@ -408,7 +409,6 @@ fn entry_icon_uses_display_harness_and_execution_location() {
             run_time: None,
             session_status: None,
             source: None,
-            execution_location: None,
             working_directory: None,
             environment_id: None,
             harness: Some(Harness::Codex),
@@ -447,13 +447,15 @@ fn entry_icon_uses_display_harness_and_execution_location() {
     task_backed_local.backing.has_ambient_run = true;
     task_backed_local.identity.ambient_agent_task_id =
         Some("00000000-0000-0000-0000-000000000001".parse().unwrap());
-    task_backed_local.display.execution_location = Some(ExecutionLocation::Local);
+    assert!(task_backed_local.is_cloud_agent_run());
+
+    task_backed_local.execution_location = Some(ExecutionLocation::Local);
     let variant = agent_conversation_entry_icon_variant(&task_backed_local);
     assert!(!AgentIconFields::from_variant(&variant).unwrap().is_ambient);
     assert!(!task_backed_local.is_cloud_agent_run());
 
     let mut remote_task = task_backed_local;
-    remote_task.display.execution_location = Some(ExecutionLocation::Remote);
+    remote_task.execution_location = Some(ExecutionLocation::Remote);
     let variant = agent_conversation_entry_icon_variant(&remote_task);
     assert!(AgentIconFields::from_variant(&variant).unwrap().is_ambient);
     assert!(remote_task.is_cloud_agent_run());
