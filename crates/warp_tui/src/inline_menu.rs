@@ -17,6 +17,7 @@ use warpui_core::elements::tui::{
 use warpui_core::elements::{CrossAxisAlignment, MouseStateHandle};
 use warpui_core::{AppContext, ModelHandle};
 
+use crate::at_context_menu::TuiAtContextMenuAcceptance;
 use crate::completion_menu::TuiCompletionAcceptance;
 use crate::conversation_menu::TuiConversationMenuModel;
 use crate::input_suggestions_mode::TuiInputSuggestionsMode;
@@ -342,6 +343,7 @@ impl<Row> TuiInlineMenuListState<Row> {
 /// Domain action produced by accepting the selected item in an active menu.
 #[derive(Debug, Clone)]
 pub(crate) enum TuiInlineMenuAccepted {
+    AtContextMenu(TuiAtContextMenuAcceptance),
     SlashCommand(AcceptSlashCommandOrSavedPrompt),
     Conversation(AgentConversationEntryId),
     Model(LLMId),

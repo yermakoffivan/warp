@@ -14,10 +14,10 @@ use warp::appearance::Appearance;
 use warp::editor::CodeEditorModel;
 use warp::settings::AISettingsChangedEvent;
 use warp::tui_export::{
-    AcceptSlashCommandOrSavedPrompt, BlocklistAIHistoryModel, BlocklistAIInputModel,
-    ConversationSelectionEvent, InputConfig, InputModePolicy, InputType, LLMId, PolicyConfigUpdate,
-    SlashCommandId, SlashCommandMixer, TuiUpArrowHistoryItemKind, VoiceInput,
-    add_tui_history_test_models, blocklist_ai_history_model_with_queries,
+    AIContextMenuSearchableAction, AcceptSlashCommandOrSavedPrompt, BlocklistAIHistoryModel,
+    BlocklistAIInputModel, ConversationSelectionEvent, InputConfig, InputModePolicy, InputType,
+    LLMId, PolicyConfigUpdate, SlashCommandId, SlashCommandMixer, TuiUpArrowHistoryItemKind,
+    VoiceInput, add_tui_history_test_models, blocklist_ai_history_model_with_queries,
     register_tui_input_mode_test_settings, register_tui_session_view_test_singletons,
 };
 use warp_core::features::FeatureFlag;
@@ -40,6 +40,7 @@ use super::{
     INPUT_HANDLES_ESCAPE_FLAG, InputKeymapContextConfig, SHELL_COMPLETION_AVAILABLE_FLAG,
     TuiInputAction, TuiInputView, TuiInputViewEvent, input_keymap_context,
 };
+use crate::at_context_menu::TuiAtContextMenuAcceptance;
 use crate::completion_menu::{TuiCompletionAcceptance, TuiCompletionMenuModel};
 use crate::editor_element::{TuiEditorAction, TuiEditorElement};
 use crate::editor_interaction::TuiEditorCommand;
@@ -58,6 +59,41 @@ use crate::tui_builder::TuiUiBuilder;
 use crate::voice_input::{TuiVoiceInputModel, TuiVoiceInputState};
 
 const W: u16 = 80;
+
+#[test]
+fn at_context_acceptance_replaces_the_trigger_and_locks_agent_mode() {
+    App::test((), |mut app| async move {
+        let view = app.update(|ctx| {
+            let view = build_view(ctx);
+            view.update(ctx, |view, ctx| {
+                view.set_text("@cargo", ctx);
+                view.input_mode.update(ctx, |input_mode, ctx| {
+                    input_mode.enable_autodetection(InputType::Shell, ctx);
+                });
+            });
+            view
+        });
+
+        view.update(&mut app, |view, ctx| {
+            view.route_inline_menu_acceptance(
+                TuiInlineMenuAccepted::AtContextMenu(TuiAtContextMenuAcceptance {
+                    action: AIContextMenuSearchableAction::InsertFilePath {
+                        file_path: "Cargo.toml".to_owned(),
+                    },
+                    replacement_range: 0..6,
+                }),
+                ctx,
+            );
+        });
+
+        view.read(&app, |input, ctx| {
+            let content = input.model().as_ref(ctx).content().as_ref(ctx);
+            assert_eq!(content.text().into_string(), "Cargo.toml ");
+            assert!(!input.is_shell_mode(ctx));
+            assert!(input.input_mode.as_ref(ctx).is_input_type_locked());
+        });
+    });
+}
 
 struct TestInputModePolicy;
 
@@ -1063,6 +1099,7 @@ fn enter_and_escape_stop_listening_while_escape_cancels_transcribing() {
                 | TuiInputViewEvent::AcceptedConversation(_)
                 | TuiInputViewEvent::AcceptedModel(_)
                 | TuiInputViewEvent::AcceptedMcp(_)
+                | TuiInputViewEvent::AcceptedDiffSet { .. }
                 | TuiInputViewEvent::MoveFocusUp
                 | TuiInputViewEvent::AcceptedPromptAndCommandHistory { .. }
                 | TuiInputViewEvent::RequestShellCompletion
@@ -1941,6 +1978,7 @@ fn multiline_paste_emits_once_and_fallback_inserts_without_submitting() {
                 | TuiInputViewEvent::AcceptedConversation(_)
                 | TuiInputViewEvent::AcceptedModel(_)
                 | TuiInputViewEvent::AcceptedMcp(_)
+                | TuiInputViewEvent::AcceptedDiffSet { .. }
                 | TuiInputViewEvent::AcceptedPromptAndCommandHistory { .. }
                 | TuiInputViewEvent::RequestShellCompletion
                 | TuiInputViewEvent::BackspaceAtEmptyInput

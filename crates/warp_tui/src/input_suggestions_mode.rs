@@ -12,6 +12,7 @@ use crate::read_only_menu::TuiReadOnlyMenuKind;
 pub(crate) enum TuiInputSuggestionsMode {
     #[default]
     Closed,
+    AtContextMenu,
     SlashCommands,
     ConversationMenu,
     ModelSelector,
@@ -31,6 +32,7 @@ impl TuiInputSuggestionsMode {
         match self {
             Self::ReadOnlyMenu(kind) => Some(kind),
             Self::Closed
+            | Self::AtContextMenu
             | Self::SlashCommands
             | Self::ConversationMenu
             | Self::ModelSelector
@@ -86,7 +88,8 @@ impl TuiInputSuggestionsModeModel {
                 true
             }
             active_mode if active_mode == mode => true,
-            TuiInputSuggestionsMode::SlashCommands
+            TuiInputSuggestionsMode::AtContextMenu
+            | TuiInputSuggestionsMode::SlashCommands
             | TuiInputSuggestionsMode::ConversationMenu
             | TuiInputSuggestionsMode::ModelSelector
             | TuiInputSuggestionsMode::SkillMenu
