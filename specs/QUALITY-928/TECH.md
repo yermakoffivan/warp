@@ -917,6 +917,27 @@ is needed.
   (unified to one placeholder branch)
 
 ## 11. Risks, validation, open questions
+### Follow-up cleanup
+- **Single task metadata fetch authority.** Flag-on discovery currently has two
+  ways to learn child task metadata: the streamer's placeholder-creation path
+  fetches the child task so it can create a named history row, while the
+  tracker asks `AgentConversationsModel` to fetch or refresh task state for
+  session/transcript materialization. Both paths are idempotent, but they can
+  duplicate network requests and maintain overlapping task snapshots. A
+  follow-up should make `AgentConversationsModel` the only fetch/in-flight
+  authority and have placeholder creation, tracker state, and pane
+  materialization re-drive from that cache.
+- **Child registry consolidation.** Child identity and live state are still
+  split across `BlocklistAIHistoryModel` (persisted conversation/run mapping),
+  `OrchestrationChildTracker` (family event state), `OrchestrationViewerModel`
+  (observer pane/status adapters), and `PaneGroup` (pane materialization and
+  pending hydration maps). The current implementation uses explicit
+  idempotency guards at each boundary, but the long-term shape should be:
+  history as the durable identity source of truth, tracker as transient event
+  state, OVM as a thin observer adapter, and PaneGroup as pane lifecycle only.
+  Defer this until the dogfood behavior stabilizes so the actual invariants are
+  clear.
+
 **Risks**
 - *Viewer regression*: OVM is load-bearing. M1 keeps all pre-M1 tests
   green and adds tracker coverage; flag-off is byte-identical to master.

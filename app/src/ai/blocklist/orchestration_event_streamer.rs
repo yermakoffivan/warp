@@ -674,7 +674,6 @@ impl OrchestrationEventStreamer {
                             | api::LifecycleEventType::Failed
                             | api::LifecycleEventType::Errored
                             | api::LifecycleEventType::Cancelled
-                            | api::LifecycleEventType::Unspecified
                     );
                     if is_terminal && let Ok(task_id) = child_run_id.parse::<AmbientAgentTaskId>() {
                         log::info!(

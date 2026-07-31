@@ -83,10 +83,12 @@ pub enum ChildSignal {
     Lifecycle(api::LifecycleEventType),
     /// A REST seed row (cold-start seed / restore fetch). Boxed because the
     /// task row dwarfs the other variants.
+    #[allow(dead_code)]
     Seeded(Box<AmbientAgentTask>),
     /// A child created by this process (`run_agents` / `start_agent`): the
     /// executor registers the child it just made with its existing local
     /// conversation, marking it already-represented.
+    #[allow(dead_code)]
     Registered { conversation_id: AIConversationId },
 }
 
@@ -109,6 +111,7 @@ pub struct TrackedChild {
     /// for in-band children, which already own a real local conversation and
     /// are observed for status only. The M2 pane path consumes this when
     /// persisting the placeholder conversation.
+    #[allow(dead_code)]
     pub is_remote_child: bool,
 }
 

@@ -12,9 +12,6 @@ pub(crate) mod diff_types;
 pub(crate) mod handoff;
 
 pub(crate) mod local_agent_task_sync_model;
-// The tracker type is defined in M1 T1; its stream/pane callers are wired in
-// T2 and M2, so nothing references it yet within this crate.
-#[allow(dead_code)]
 pub(crate) mod orchestration_child_tracker;
 pub(crate) mod orchestration_event_streamer;
 pub(crate) mod orchestration_events;
