@@ -122,7 +122,11 @@ pub struct CheckpointGeneration(String);
 impl CheckpointGeneration {
     /// Wrap an already-validated generation string. Exposed for tests; production
     /// code should go through `snapshot::mint_generation` instead.
-    #[cfg(test)]
+    ///
+    /// The only caller (`driver::snapshot`'s test module) is itself excluded on
+    /// Windows (snapshot upload is cloud-agent-only and Linux-only), so this must
+    /// be gated the same way or it is dead code under Windows clippy/test builds.
+    #[cfg(all(test, not(windows)))]
     pub(crate) fn new_for_test(value: impl Into<String>) -> Self {
         Self(value.into())
     }
