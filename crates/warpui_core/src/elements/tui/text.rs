@@ -291,7 +291,9 @@ impl TuiElement for TuiText {
         if size.width == 0 || size.height == 0 {
             return;
         }
-        surface.render_widget(self.paragraph(size.width), origin, size);
+        surface.render_vertically_scrollable_widget(origin, size, |row_offset| {
+            self.paragraph(size.width).scroll((row_offset, 0))
+        });
     }
 
     fn size(&self) -> Option<TuiSize> {

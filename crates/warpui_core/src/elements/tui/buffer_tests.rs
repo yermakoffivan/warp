@@ -1,6 +1,10 @@
 use ratatui::style::{Color, Style};
+use ratatui::text::Line;
+use ratatui::widgets::Paragraph;
 
-use crate::elements::tui::{TuiBuffer, TuiBufferExt, TuiPaintSurface, TuiRect, TuiScreenPosition};
+use crate::elements::tui::{
+    TuiBuffer, TuiBufferExt, TuiPaintSurface, TuiRect, TuiScreenPosition, TuiSize,
+};
 
 fn buffer(width: u16, height: u16) -> TuiBuffer {
     TuiBuffer::empty(TuiRect::new(0, 0, width, height))
@@ -86,4 +90,83 @@ fn surface_writes_outside_the_mapping_fail_closed() {
     }
 
     assert_eq!(b.to_lines(), vec!["  "]);
+}
+
+#[test]
+fn vertically_scrollable_widget_renders_only_visible_rows() {
+    let mut b = buffer(3, 2);
+    let mut surface = TuiPaintSurface::new(&mut b);
+
+    assert!(surface.render_vertically_scrollable_widget(
+        TuiScreenPosition::new(0, -2),
+        TuiSize::new(3, 4),
+        |row_offset| {
+            Paragraph::new(vec![
+                Line::from("a"),
+                Line::from("b"),
+                Line::from("c"),
+                Line::from("d"),
+            ])
+            .scroll((row_offset, 0))
+        },
+    ));
+
+    assert_eq!(b.to_lines(), vec!["c  ", "d  "]);
+}
+
+#[test]
+fn set_style_clips_negative_screen_bounds() {
+    let mut b = buffer(2, 2);
+    let mut surface = TuiPaintSurface::new(&mut b);
+
+    surface.set_style(
+        TuiScreenPosition::new(0, -1),
+        TuiSize::new(2, 2),
+        Style::default().fg(Color::Red),
+    );
+
+    assert_eq!(b[(0, 0)].fg, Color::Red);
+    assert_eq!(b[(0, 1)].fg, Color::Reset);
+}
+
+#[test]
+fn nested_surface_clip_contains_cells_styles_and_widgets() {
+    let mut b = buffer(3, 4);
+    let mut surface = TuiPaintSurface::new(&mut b);
+
+    surface.with_clip(
+        TuiScreenPosition::new(0, 1),
+        TuiSize::new(3, 2),
+        |surface| {
+            assert!(surface.cell_mut(TuiScreenPosition::new(0, 0)).is_none());
+            surface
+                .cell_mut(TuiScreenPosition::new(0, 1))
+                .unwrap()
+                .set_symbol("x");
+            surface.set_style(
+                TuiScreenPosition::new(0, 0),
+                TuiSize::new(3, 4),
+                Style::default().fg(Color::Red),
+            );
+            assert!(surface.render_vertically_scrollable_widget(
+                TuiScreenPosition::new(0, 0),
+                TuiSize::new(3, 4),
+                |row_offset| {
+                    Paragraph::new(vec![
+                        Line::from("a"),
+                        Line::from("b"),
+                        Line::from("c"),
+                        Line::from("d"),
+                    ])
+                    .scroll((row_offset, 0))
+                },
+            ));
+        },
+    );
+
+    assert_eq!(b.to_lines(), vec!["   ", "b  ", "c  ", "   "]);
+    assert_eq!(b[(0, 0)].fg, Color::Reset);
+    assert_eq!(b[(0, 1)].fg, Color::Red);
+    assert_eq!(b[(0, 2)].fg, Color::Red);
+    assert_eq!(b[(0, 3)].fg, Color::Reset);
 }
